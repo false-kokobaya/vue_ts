@@ -10,11 +10,15 @@ function splitLines(value: string): string[] {
   return lines
 }
 
+function isSimilar(line1: string, line2: string): boolean {
+  const keyMatch1 = line1.match(/"([^"]+)"\s*:/)
+  const keyMatch2 = line2.match(/"([^"]+)"\s*:/)
+  return Boolean(keyMatch1 && keyMatch2 && keyMatch1[1] === keyMatch2[1])
+}
+
 /**
  * Builds merged text from base and compare, applying only selected diff blocks.
- * - remove block selected: omit those lines from result
- * - add block selected: include compare lines in result
- * - change block selected: use compare lines; otherwise use base lines
+ * Block order must match useJsonDiff: change blocks first, then remove, then add.
  */
 export function useJsonMerge(
   baseText: Ref<string>,
@@ -44,11 +48,47 @@ export function useJsonMerge(
       } else if (curr.removed) {
         if (next && next.added) {
           const nextLinesForChange = splitLines(next.value)
-          const id = blockId++
-          if (selected.has(id)) {
-            resultLines.push(...nextLinesForChange)
-          } else {
-            resultLines.push(...currLines)
+          const usedRemoved = new Set<number>()
+          const usedAdded = new Set<number>()
+
+          for (let rIdx = 0; rIdx < currLines.length; rIdx++) {
+            const removedLine = currLines[rIdx]
+            if (!removedLine) continue
+            for (let aIdx = 0; aIdx < nextLinesForChange.length; aIdx++) {
+              const addedLine = nextLinesForChange[aIdx]
+              if (!addedLine) continue
+              if (!usedAdded.has(aIdx) && isSimilar(removedLine, addedLine)) {
+                const id = blockId++
+                if (selected.has(id)) {
+                  resultLines.push(addedLine)
+                } else {
+                  resultLines.push(removedLine)
+                }
+                usedRemoved.add(rIdx)
+                usedAdded.add(aIdx)
+                break
+              }
+            }
+          }
+          for (let rIdx = 0; rIdx < currLines.length; rIdx++) {
+            if (!usedRemoved.has(rIdx)) {
+              const removedLine = currLines[rIdx]
+              if (!removedLine) continue
+              const id = blockId++
+              if (!selected.has(id)) {
+                resultLines.push(removedLine)
+              }
+            }
+          }
+          for (let aIdx = 0; aIdx < nextLinesForChange.length; aIdx++) {
+            if (!usedAdded.has(aIdx)) {
+              const addedLine = nextLinesForChange[aIdx]
+              if (!addedLine) continue
+              const id = blockId++
+              if (selected.has(id)) {
+                resultLines.push(addedLine)
+              }
+            }
           }
           i++
         } else {

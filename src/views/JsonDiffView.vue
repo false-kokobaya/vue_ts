@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, nextTick } from 'vue'
 import { useJsonDiff } from '@/composables/useJsonDiff'
 import { useJsonMerge } from '@/composables/useJsonMerge'
 import DiffLineList from '@/components/DiffLineList.vue'
@@ -11,6 +11,10 @@ const selectedBlockIds = ref<Set<number>>(new Set())
 
 const baseFileInput = ref<HTMLInputElement | null>(null)
 const compareFileInput = ref<HTMLInputElement | null>(null)
+const baseTextarea = ref<HTMLTextAreaElement | null>(null)
+const compareTextarea = ref<HTMLTextAreaElement | null>(null)
+
+let isScrollingFromSync = false
 
 function readFileAsText(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -21,11 +25,37 @@ function readFileAsText(file: File): Promise<string> {
   })
 }
 
+function validateJsonSyntax(text: string): { ok: true } | { ok: false; message: string } {
+  if (text.trim() === '') return { ok: true }
+  try {
+    JSON.parse(text)
+    return { ok: true }
+  } catch (e) {
+    const message = e instanceof Error ? e.message : String(e)
+    return { ok: false, message }
+  }
+}
+
+function resetTextareaScroll() {
+  nextTick(() => {
+    if (baseTextarea.value) baseTextarea.value.scrollTop = 0
+    if (compareTextarea.value) compareTextarea.value.scrollTop = 0
+  })
+}
+
 async function onBaseFileChange(e: Event) {
   const input = e.target as HTMLInputElement
   const file = input.files?.[0]
   if (file) {
-    baseText.value = await readFileAsText(file)
+    const text = await readFileAsText(file)
+    const result = validateJsonSyntax(text)
+    if (!result.ok) {
+      alert(`JSONの構文が不正です。読み込みを中止します。\n\n${result.message}`)
+      input.value = ''
+      return
+    }
+    baseText.value = text
+    resetTextareaScroll()
   }
   input.value = ''
 }
@@ -34,9 +64,37 @@ async function onCompareFileChange(e: Event) {
   const input = e.target as HTMLInputElement
   const file = input.files?.[0]
   if (file) {
-    compareText.value = await readFileAsText(file)
+    const text = await readFileAsText(file)
+    const result = validateJsonSyntax(text)
+    if (!result.ok) {
+      alert(`JSONの構文が不正です。読み込みを中止します。\n\n${result.message}`)
+      input.value = ''
+      return
+    }
+    compareText.value = text
+    resetTextareaScroll()
   }
   input.value = ''
+}
+
+function onBaseTextareaScroll() {
+  if (isScrollingFromSync) return
+  isScrollingFromSync = true
+  if (baseTextarea.value && compareTextarea.value) {
+    compareTextarea.value.scrollTop = baseTextarea.value.scrollTop
+    compareTextarea.value.scrollLeft = baseTextarea.value.scrollLeft
+  }
+  requestAnimationFrame(() => { isScrollingFromSync = false })
+}
+
+function onCompareTextareaScroll() {
+  if (isScrollingFromSync) return
+  isScrollingFromSync = true
+  if (baseTextarea.value && compareTextarea.value) {
+    baseTextarea.value.scrollTop = compareTextarea.value.scrollTop
+    baseTextarea.value.scrollLeft = compareTextarea.value.scrollLeft
+  }
+  requestAnimationFrame(() => { isScrollingFromSync = false })
 }
 
 function triggerBaseFileSelect() {
@@ -47,7 +105,7 @@ function triggerCompareFileSelect() {
   compareFileInput.value?.click()
 }
 
-const { unifiedLines, blocks } = useJsonDiff(baseText, compareText, selectedBlockIds)
+const { leftLines, rightLines, blocks } = useJsonDiff(baseText, compareText, selectedBlockIds)
 const { mergedText } = useJsonMerge(baseText, compareText, selectedBlockIds)
 
 function toggleBlock(blockId: number) {
@@ -105,32 +163,40 @@ function downloadMerged() {
         <div class="panel base-panel">
           <h2 class="panel-title">ファイルA（ベース）</h2>
           <textarea
+            ref="baseTextarea"
             v-model="baseText"
             class="textarea"
             placeholder="JSONを貼り付けまたはファイルを読み込み"
             spellcheck="false"
+            @scroll="onBaseTextareaScroll"
           />
+          <div v-if="leftLines.length > 0" class="panel-diff">
+            <p class="panel-diff-legend" aria-hidden="true">
+              <span class="legend-item legend-removed">赤＝削除</span>
+              <span class="legend-item legend-changed">黄＝変更</span>
+            </p>
+            <DiffLineList :lines="leftLines" side="left" />
+          </div>
         </div>
         <div class="panel compare-panel">
           <h2 class="panel-title">ファイルB（比較）</h2>
           <textarea
+            ref="compareTextarea"
             v-model="compareText"
             class="textarea"
             placeholder="JSONを貼り付けまたはファイルを読み込み"
             spellcheck="false"
+            @scroll="onCompareTextareaScroll"
           />
+          <div v-if="rightLines.length > 0" class="panel-diff">
+            <p class="panel-diff-legend" aria-hidden="true">
+              <span class="legend-item legend-added">緑＝追加</span>
+              <span class="legend-item legend-changed">黄＝変更</span>
+            </p>
+            <DiffLineList :lines="rightLines" side="right" />
+          </div>
         </div>
       </div>
-
-      <section v-if="unifiedLines.length > 0" class="unified-diff-section">
-        <h2 class="diff-section-title">差分表示（行番号・色付き）</h2>
-        <p class="diff-legend" aria-hidden="true">
-          <span class="legend-item legend-added">緑＝追加</span>
-          <span class="legend-item legend-changed">黄＝変更</span>
-          <span class="legend-item legend-removed">赤＝削除</span>
-        </p>
-        <DiffLineList :lines="unifiedLines" side="unified" />
-      </section>
 
       <MergeControl v-if="blocks.length > 0" :blocks="blocks" @toggle="toggleBlock" />
 
@@ -214,14 +280,18 @@ function downloadMerged() {
 .panels {
   display: grid;
   grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr;
+  align-items: stretch;
   gap: 1rem;
   margin-bottom: 1rem;
+  min-height: 400px;
 }
 
 .panel {
   display: flex;
   flex-direction: column;
-  min-height: 200px;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .panel-title {
@@ -232,29 +302,24 @@ function downloadMerged() {
 
 .textarea {
   flex: 1;
-  min-height: 200px;
+  min-height: 120px;
   padding: 0.75rem;
   font-family: ui-monospace, monospace;
   font-size: 0.8125rem;
   line-height: 1.5;
   border: 1px solid var(--color-border);
   border-radius: 6px;
-  resize: vertical;
+  resize: none;
 }
 
-.unified-diff-section {
-  margin-top: 1.5rem;
-  padding-top: 1rem;
-  border-top: 1px solid var(--color-border);
+.panel-diff {
+  margin-top: 1rem;
+  flex-shrink: 0;
+  overflow: auto;
+  min-height: 0;
 }
 
-.diff-section-title {
-  margin: 0 0 0.5rem;
-  font-size: 1rem;
-  font-weight: 600;
-}
-
-.diff-legend {
+.panel-diff-legend {
   margin: 0 0 0.5rem;
   font-size: 0.75rem;
   display: flex;
@@ -274,6 +339,10 @@ function downloadMerged() {
   margin-top: 1.5rem;
   padding-top: 1rem;
   border-top: 1px solid var(--color-border);
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .result-header {
@@ -300,7 +369,11 @@ function downloadMerged() {
 }
 
 .result-textarea {
-  min-height: 180px;
+  flex: 1;
+  min-height: 320px;
   background: var(--color-background-soft);
+  font-family: ui-monospace, monospace;
+  font-size: 0.8125rem;
+  line-height: 1.5;
 }
 </style>

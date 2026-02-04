@@ -30,7 +30,7 @@ function blockLabel(block: DiffBlock): string {
 <template>
   <div class="merge-control">
     <h3 class="merge-control-title">差分を選択して結合</h3>
-    <p class="merge-control-desc">取り込みたい差分の「取り込む」にチェックを入れてください。</p>
+    <p class="merge-control-desc">取り込みたい差分の、各ブロックの<strong class="merge-action-label">「取り込む」</strong>にチェックを入れてください。</p>
     <ul class="block-list" aria-label="差分ブロック一覧">
       <li
         v-for="block in blocks"
@@ -45,6 +45,7 @@ function blockLabel(block: DiffBlock): string {
             :aria-label="`ブロック ${block.id + 1}: ${blockLabel(block)} を取り込む`"
             @change="toggleBlock(block.id)"
           />
+          <span class="merge-action-text">取り込む</span>
           <span class="block-label-text">{{ blockLabel(block) }}</span>
         </label>
         <span class="block-badge" :aria-hidden="true">{{ block.type === 'add' ? '追加' : block.type === 'remove' ? '削除' : '変更' }}</span>
@@ -74,6 +75,18 @@ function blockLabel(block: DiffBlock): string {
   font-size: 0.875rem;
   color: var(--color-text);
   opacity: 0.9;
+}
+
+.merge-action-label {
+  font-weight: 600;
+  color: var(--color-heading);
+}
+
+.merge-action-text {
+  font-weight: 600;
+  font-size: 0.875rem;
+  min-width: 4.5em;
+  color: var(--color-heading);
 }
 
 .block-list {
@@ -112,6 +125,7 @@ function blockLabel(block: DiffBlock): string {
   border-radius: 4px;
   flex-shrink: 0;
 }
+
 
 .block-item--add .block-badge {
   background-color: #bbf7d0;

@@ -93,24 +93,92 @@ export function useJsonDiff(
       } else if (curr.removed) {
         if (next && next.added) {
           const nextLinesForChange = splitLines(next.value)
-          const maxLen = Math.max(currLines.length, nextLinesForChange.length)
-          for (let j = 0; j < maxLen; j++) {
-            leftLineNum++
-            rightLineNum++
-            const leftText = currLines[j] ?? ''
-            const rightText = nextLinesForChange[j] ?? ''
-            leftLines.push({ lineNumber: leftLineNum, text: leftText, type: 'changed' })
-            rightLines.push({ lineNumber: rightLineNum, text: rightText, type: 'changed' })
-            unifiedLineNum++
-            unifiedLines.push({ lineNumber: unifiedLineNum, text: rightText, type: 'changed' })
+          
+          // 類似度判定用の関数（簡易版）
+          const isSimilar = (line1: string, line2: string): boolean => {
+            const keyMatch1 = line1.match(/"([^"]+)"\s*:/)
+            const keyMatch2 = line2.match(/"([^"]+)"\s*:/)
+            return Boolean(keyMatch1 && keyMatch2 && keyMatch1[1] === keyMatch2[1])
           }
-          blocks.push({
-            id: blockId++,
-            type: 'change',
-            baseLines: currLines,
-            compareLines: nextLinesForChange,
-            selected: selectedBlockIds.value.has(blockId - 1),
-          })
+          
+          const usedRemoved = new Set<number>()
+          const usedAdded = new Set<number>()
+          
+         // マッチング: 削除行と追加行でキーが同じものをペアにする
+          for (let rIdx = 0; rIdx < currLines.length; rIdx++) {
+            const removedLine = currLines[rIdx]  // ← この行を追加
+            if (!removedLine) continue  // ← この行を追加
+            
+            for (let aIdx = 0; aIdx < nextLinesForChange.length; aIdx++) {
+              const addedLine = nextLinesForChange[aIdx]  // ← この行を追加
+              if (!addedLine) continue  // ← この行を追加
+              
+              if (!usedAdded.has(aIdx) && isSimilar(removedLine, addedLine)) {  
+                // 変更として扱う
+                leftLineNum++
+                rightLineNum++
+                leftLines.push({ lineNumber: leftLineNum, text: removedLine, type: 'changed' })  
+                rightLines.push({ lineNumber: rightLineNum, text: addedLine, type: 'changed' })  
+                unifiedLineNum++
+                unifiedLines.push({ lineNumber: unifiedLineNum, text: addedLine, type: 'changed' })  
+                
+                blocks.push({
+                  id: blockId++,
+                  type: 'change',
+                  baseLines: [removedLine], 
+                  compareLines: [addedLine],  
+                  selected: selectedBlockIds.value.has(blockId - 1),
+                })
+                
+                usedRemoved.add(rIdx)
+                usedAdded.add(aIdx)
+                break
+              }
+            }
+          }
+          
+          // マッチしなかった削除行 → 削除として扱う
+          for (let rIdx = 0; rIdx < currLines.length; rIdx++) {
+            if (!usedRemoved.has(rIdx)) {
+              const removedLine = currLines[rIdx]
+              if (!removedLine) continue
+
+              leftLineNum++
+              leftLines.push({ lineNumber: leftLineNum, text: removedLine, type: 'removed' })
+              unifiedLineNum++
+              unifiedLines.push({ lineNumber: unifiedLineNum, text: '', type: 'removed' })
+              
+              blocks.push({
+                id: blockId++,
+                type: 'remove',
+                baseLines: [removedLine],
+                compareLines: [],
+                selected: selectedBlockIds.value.has(blockId - 1),
+              })
+            }
+          }
+          
+          // マッチしなかった追加行 → 追加として扱う
+          for (let aIdx = 0; aIdx < nextLinesForChange.length; aIdx++) {
+            if (!usedAdded.has(aIdx)) {
+              const addedLine = nextLinesForChange[aIdx]  
+              if (!addedLine) continue  
+              
+              rightLineNum++
+              rightLines.push({ lineNumber: rightLineNum, text: addedLine, type: 'added' })
+              unifiedLineNum++
+              unifiedLines.push({ lineNumber: unifiedLineNum, text: addedLine, type: 'added' })
+              
+              blocks.push({
+                id: blockId++,
+                type: 'add',
+                baseLines: [],
+                compareLines: [addedLine],
+                selected: selectedBlockIds.value.has(blockId - 1),
+              })
+            }
+          }
+          
           i++
         } else {
           for (const line of currLines) {
