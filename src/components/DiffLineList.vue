@@ -18,7 +18,7 @@ defineProps<{
       :class="[`diff-line--${line.type}`, line.type === 'removed' && !line.text ? 'diff-line--removed-bar' : '']"
       :data-line-type="line.type"
     >
-      <span class="diff-line-number" aria-hidden="true">{{ line.lineNumber }}</span>
+      <span class="diff-line-number" aria-hidden="true">{{ line.type === 'removed' || line.lineNumber === 0 ? '' : line.lineNumber }}</span>
       <span class="diff-line-content">{{ line.text || (line.type === 'removed' ? '' : ' ') }}</span>
     </div>
   </div>

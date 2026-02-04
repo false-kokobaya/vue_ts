@@ -172,7 +172,8 @@ function downloadMerged() {
           />
           <div v-if="leftLines.length > 0" class="panel-diff">
             <p class="panel-diff-legend" aria-hidden="true">
-              <span class="legend-item legend-removed">赤＝削除</span>
+              <span class="legend-item legend-added">緑＝追加（ベースにある）</span>
+              <span class="legend-item legend-removed">赤＝削除（ベースにない）</span>
               <span class="legend-item legend-changed">黄＝変更</span>
             </p>
             <DiffLineList :lines="leftLines" side="left" />
@@ -190,7 +191,8 @@ function downloadMerged() {
           />
           <div v-if="rightLines.length > 0" class="panel-diff">
             <p class="panel-diff-legend" aria-hidden="true">
-              <span class="legend-item legend-added">緑＝追加</span>
+              <span class="legend-item legend-added">緑＝追加（比較にある）</span>
+              <span class="legend-item legend-removed">赤＝削除（比較にない）</span>
               <span class="legend-item legend-changed">黄＝変更</span>
             </p>
             <DiffLineList :lines="rightLines" side="right" />
