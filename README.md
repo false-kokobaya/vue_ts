@@ -145,8 +145,8 @@ flowchart TB
     B1 --> VB[JSON.parse で検証]
     VA -->|不正| REJECT_A[アラート表示・読み込み中止]
     VB -->|不正| REJECT_B[アラート表示・読み込み中止]
-    VA -->|OK| baseText[(baseText)]
-    VB -->|OK| compareText[(compareText)]
+    VA -->|OK| baseText[baseText]
+    VB -->|OK| compareText[compareText]
   end
 
   subgraph DIFF["差分判定 (useJsonDiff)"]
@@ -171,7 +171,7 @@ flowchart TB
   subgraph UI["表示・選択"]
     result --> display[左右パネルに色付き表示]
     display --> click[ユーザーが行をクリック]
-    click --> selectedBlockIds[(selectedBlockIds 更新)]
+    click --> selectedBlockIds[selectedBlockIds 更新]
   end
 
   subgraph MERGE["結合 (useJsonMerge)"]
@@ -183,7 +183,7 @@ flowchart TB
     apply -->|No| useBase[ベース側の内容を採用]
     useCompare --> mergedLines[結果行リスト]
     useBase --> mergedLines
-    mergedLines --> mergedText[(mergedText)]
+    mergedLines --> mergedText[mergedText]
   end
 
   subgraph OUT["出力・検証"]
