@@ -138,58 +138,58 @@ npm run test:coverage # カバレッジ付きで実行
 
 ```mermaid
 flowchart TB
-  subgraph INPUT["入力"]
-    A[ファイルA / 貼り付け] --> A1[テキストとして取得]
-    B[ファイルB / 貼り付け] --> B1[テキストとして取得]
-    A1 --> VA[JSON.parse で検証]
-    B1 --> VB[JSON.parse で検証]
-    VA -->|不正| REJECT_A[アラート表示・読み込み中止]
-    VB -->|不正| REJECT_B[アラート表示・読み込み中止]
-    VA -->|OK| baseText[baseText]
-    VB -->|OK| compareText[compareText]
+  subgraph INPUT[入力]
+    A[ファイルA] --> A1[テキスト取得]
+    B[ファイルB] --> B1[テキスト取得]
+    A1 --> VA[JSON検証]
+    B1 --> VB[JSON検証]
+    VA -->|不正| REJECT_A[読み込み中止]
+    VB -->|不正| REJECT_B[読み込み中止]
+    VA -->|OK| baseText[ベース]
+    VB -->|OK| compareText[比較]
   end
 
-  subgraph DIFF["差分判定 (useJsonDiff)"]
-    baseText --> diffLines[diffLines で行単位差分]
+  subgraph DIFF[差分判定]
+    baseText --> diffLines[行単位差分]
     compareText --> diffLines
-    diffLines --> chunks[追加/削除/変更のチャンク列]
-    chunks --> walk[チャンクを順に走査]
-    walk --> type{チャンク種別}
-    type -->|unchanged| out_unchanged[そのまま出力]
-    type -->|added| out_added[追加ブロック・blockId 付与]
-    type -->|removed| next{直後が added?}
-    next -->|Yes| keyMatch['キー一致で行ペアリング<br/>key で変更と判定']
-    next -->|No| out_removed[削除ブロック・blockId 付与]
-    keyMatch --> diffChars[diffChars で文字単位差分]
-    diffChars --> out_changed[変更ブロック・blockId + インラインセグメント]
-    out_unchanged --> result
-    out_added --> result[leftLines / rightLines / blocks]
+    diffLines --> chunks[チャンク列]
+    chunks --> walk[走査]
+    walk --> type{種別}
+    type -->|変更なし| out_unchanged[そのまま]
+    type -->|追加| out_added[追加]
+    type -->|削除| next{直後が追加}
+    next -->|はい| keyMatch[キー一致でペア]
+    next -->|いいえ| out_removed[削除]
+    keyMatch --> diffChars[文字単位差分]
+    diffChars --> out_changed[変更]
+    out_unchanged --> result[結果]
+    out_added --> result
     out_removed --> result
     out_changed --> result
   end
 
-  subgraph UI["表示・選択"]
-    result --> display[左右パネルに色付き表示]
-    display --> click[ユーザーが行をクリック]
-    click --> selectedBlockIds[selectedBlockIds 更新]
+  subgraph UI[表示・選択]
+    result --> display[色付き表示]
+    display --> click[行をクリック]
+    click --> 選択ブロック
   end
 
-  subgraph MERGE["結合 (useJsonMerge)"]
-    baseText --> mergeWalk[同じ diffLines を同じ順で走査]
+  subgraph MERGE[結合]
+    baseText --> mergeWalk[同じ順で走査]
     compareText --> mergeWalk
-    selectedBlockIds --> mergeWalk
-    mergeWalk --> apply{ブロックが選択済み?}
-    apply -->|Yes| useCompare[比較側の内容を採用]
-    apply -->|No| useBase[ベース側の内容を採用]
-    useCompare --> mergedLines[結果行リスト]
+    選択ブロック --> mergeWalk
+    mergeWalk --> apply{選択済み}
+    apply -->|はい| useCompare[比較側採用]
+    apply -->|いいえ| useBase[ベース採用]
+    useCompare --> mergedLines[結果行]
     useBase --> mergedLines
-    mergedLines --> mergedText[mergedText]
+    mergedLines --> mergedText[結合結果]
   end
 
-  subgraph OUT["出力・検証"]
-    mergedText --> validate[JSON.parse で結合結果を検証]
-    validate -->|不正| errMsg[エラー表示・ダウンロード非活性]
-    validate -->|OK| download[結合結果をダウンロード可能]
+  subgraph OUT[出力・検証]
+    mergedText --> validate[検証]
+    validate -->|不正| errMsg[エラー表示]
+    validate -->|OK| download[ダウンロード可]
   end
 
   INPUT --> DIFF
