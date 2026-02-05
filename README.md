@@ -138,58 +138,58 @@ npm run test:coverage # カバレッジ付きで実行
 
 ```mermaid
 flowchart TB
-  subgraph INPUT[Input]
-    A[File A] --> A1[Get text]
-    B[File B] --> B1[Get text]
-    A1 --> VA[Validate JSON]
-    B1 --> VB[Validate JSON]
-    VA -->|ng| REJECT_A[Reject]
-    VB -->|ng| REJECT_B[Reject]
-    VA -->|ok| baseText[baseText]
-    VB -->|ok| compareText[compareText]
+  subgraph INPUT[入力]
+    A[ファイルA] --> A1[テキスト取得]
+    B[ファイルB] --> B1[テキスト取得]
+    A1 --> VA[JSON検証]
+    B1 --> VB[JSON検証]
+    VA -->|不正| REJECT_A[読み込み中止]
+    VB -->|不正| REJECT_B[読み込み中止]
+    VA -->|OK| baseText[ベース]
+    VB -->|OK| compareText[比較]
   end
 
-  subgraph DIFF[Diff]
-    baseText --> diffLines[diffLines]
+  subgraph DIFF[差分判定]
+    baseText --> diffLines[行単位差分]
     compareText --> diffLines
-    diffLines --> chunks[chunks]
-    chunks --> walk[walk]
-    walk --> type{type}
-    type -->|unchanged| out_unchanged[unchanged]
-    type -->|added| out_added[added]
-    type -->|removed| next{has next}
-    next -->|yes| keyMatch[keyMatch]
-    next -->|no| out_removed[removed]
-    keyMatch --> diffChars[diffChars]
-    diffChars --> out_changed[changed]
-    out_unchanged --> result[output]
+    diffLines --> chunks[チャンク列]
+    chunks --> walk[走査]
+    walk --> type{種別}
+    type -->|変更なし| out_unchanged[そのまま]
+    type -->|追加| out_added[追加]
+    type -->|削除| next{直後が追加}
+    next -->|はい| keyMatch[キー一致でペア]
+    next -->|いいえ| out_removed[削除]
+    keyMatch --> diffChars[文字単位差分]
+    diffChars --> out_changed[変更]
+    out_unchanged --> result[結果]
     out_added --> result
     out_removed --> result
     out_changed --> result
   end
 
-  subgraph UI[UI]
-    result --> display[display]
-    display --> click[click]
-    click --> selectedBlockIds
+  subgraph UI[表示・選択]
+    result --> display[色付き表示]
+    display --> click[行をクリック]
+    click --> 選択ブロック
   end
 
-  subgraph MERGE[Merge]
-    baseText --> mergeWalk[mergeWalk]
+  subgraph MERGE[結合]
+    baseText --> mergeWalk[同じ順で走査]
     compareText --> mergeWalk
-    selectedBlockIds --> mergeWalk
-    mergeWalk --> apply{selected}
-    apply -->|yes| useCompare[compare]
-    apply -->|no| useBase[base]
-    useCompare --> mergedLines[lines]
+    選択ブロック --> mergeWalk
+    mergeWalk --> apply{選択済み}
+    apply -->|はい| useCompare[比較側採用]
+    apply -->|いいえ| useBase[ベース採用]
+    useCompare --> mergedLines[結果行]
     useBase --> mergedLines
-    mergedLines --> mergedText[mergedText]
+    mergedLines --> mergedText[結合結果]
   end
 
-  subgraph OUT[Output]
-    mergedText --> validate[validate]
-    validate -->|ng| errMsg[error]
-    validate -->|ok| download[download]
+  subgraph OUT[出力・検証]
+    mergedText --> validate[検証]
+    validate -->|不正| errMsg[エラー表示]
+    validate -->|OK| download[ダウンロード可]
   end
 
   INPUT --> DIFF
