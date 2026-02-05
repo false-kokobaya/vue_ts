@@ -3,7 +3,6 @@ import { ref, nextTick } from 'vue'
 import { useJsonDiff } from '@/composables/useJsonDiff'
 import { useJsonMerge } from '@/composables/useJsonMerge'
 import DiffLineList from '@/components/DiffLineList.vue'
-import MergeControl from '@/components/MergeControl.vue'
 
 const baseText = ref('')
 const compareText = ref('')
@@ -175,8 +174,14 @@ function downloadMerged() {
               <span class="legend-item legend-added">緑＝追加（ベースにある）</span>
               <span class="legend-item legend-removed">赤＝削除（ベースにない）</span>
               <span class="legend-item legend-changed">黄＝変更</span>
+              <span class="legend-item legend-hint">色付きの行をクリックで取り込み選択</span>
             </p>
-            <DiffLineList :lines="leftLines" side="left" />
+            <DiffLineList
+              :lines="leftLines"
+              :selected-block-ids="selectedBlockIds"
+              side="left"
+              @toggle="toggleBlock"
+            />
           </div>
         </div>
         <div class="panel compare-panel">
@@ -194,13 +199,17 @@ function downloadMerged() {
               <span class="legend-item legend-added">緑＝追加（比較にある）</span>
               <span class="legend-item legend-removed">赤＝削除（比較にない）</span>
               <span class="legend-item legend-changed">黄＝変更</span>
+              <span class="legend-item legend-hint">色付きの行をクリックで取り込み選択</span>
             </p>
-            <DiffLineList :lines="rightLines" side="right" />
+            <DiffLineList
+              :lines="rightLines"
+              :selected-block-ids="selectedBlockIds"
+              side="right"
+              @toggle="toggleBlock"
+            />
           </div>
         </div>
       </div>
-
-      <MergeControl v-if="blocks.length > 0" :blocks="blocks" @toggle="toggleBlock" />
 
       <section v-if="baseText !== '' || compareText !== ''" class="result-section">
         <div class="result-header">
@@ -336,6 +345,7 @@ function downloadMerged() {
 .legend-removed { color: #991b1b; }
 .legend-added { color: #166534; }
 .legend-changed { color: #854d0e; }
+.legend-hint { opacity: 0.85; font-weight: normal; }
 
 .result-section {
   margin-top: 1.5rem;

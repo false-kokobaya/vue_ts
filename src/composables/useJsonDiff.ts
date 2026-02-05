@@ -13,12 +13,16 @@ export interface DiffLineLeft {
   lineNumber: number
   text: string
   type: LeftLineType
+  /** クリックで取り込み選択するブロックID。未設定は選択不可行 */
+  blockId?: number
 }
 
 export interface DiffLineRight {
   lineNumber: number
   text: string
   type: RightLineType
+  /** クリックで取り込み選択するブロックID。未設定は選択不可行 */
+  blockId?: number
 }
 
 export interface UnifiedDiffLine {
@@ -84,19 +88,20 @@ export function useJsonDiff(
       const currLines = splitLines(curr.value)
 
       if (curr.added) {
-        for (const line of currLines) {
-          leftLines.push({ lineNumber: 0, text: '', type: 'removed' })
-          rightLines.push({ lineNumber: 0, text: line, type: 'added' })
-          unifiedLineNum++
-          unifiedLines.push({ lineNumber: unifiedLineNum, text: line, type: 'added' })
-        }
+        const id = blockId
         blocks.push({
           id: blockId++,
           type: 'add',
           baseLines: [],
           compareLines: currLines,
-          selected: selectedBlockIds.value.has(blockId - 1),
+          selected: selectedBlockIds.value.has(id),
         })
+        for (const line of currLines) {
+          leftLines.push({ lineNumber: 0, text: '', type: 'removed', blockId: id })
+          rightLines.push({ lineNumber: 0, text: line, type: 'added', blockId: id })
+          unifiedLineNum++
+          unifiedLines.push({ lineNumber: unifiedLineNum, text: line, type: 'added' })
+        }
       } else if (curr.removed) {
         if (next && next.added) {
           const nextLinesForChange = splitLines(next.value)
@@ -115,19 +120,20 @@ export function useJsonDiff(
               const addedLine = nextLinesForChange[aIdx]
               if (!addedLine) continue
               if (!usedAdded.has(aIdx) && isSimilar(removedLine, addedLine)) {
-                leftLineNum++
-                rightLineNum++
-                leftLines.push({ lineNumber: leftLineNum, text: removedLine, type: 'changed' })
-                rightLines.push({ lineNumber: rightLineNum, text: addedLine, type: 'changed' })
-                unifiedLineNum++
-                unifiedLines.push({ lineNumber: unifiedLineNum, text: addedLine, type: 'changed' })
+                const id = blockId
                 blocks.push({
                   id: blockId++,
                   type: 'change',
                   baseLines: [removedLine],
                   compareLines: [addedLine],
-                  selected: selectedBlockIds.value.has(blockId - 1),
+                  selected: selectedBlockIds.value.has(id),
                 })
+                leftLineNum++
+                rightLineNum++
+                leftLines.push({ lineNumber: leftLineNum, text: removedLine, type: 'changed', blockId: id })
+                rightLines.push({ lineNumber: rightLineNum, text: addedLine, type: 'changed', blockId: id })
+                unifiedLineNum++
+                unifiedLines.push({ lineNumber: unifiedLineNum, text: addedLine, type: 'changed' })
                 usedRemoved.add(rIdx)
                 usedAdded.add(aIdx)
                 break
@@ -139,17 +145,18 @@ export function useJsonDiff(
             if (!usedRemoved.has(rIdx)) {
               const removedLine = currLines[rIdx]
               if (!removedLine) continue
-              leftLines.push({ lineNumber: 0, text: removedLine, type: 'added' })
-              rightLines.push({ lineNumber: 0, text: '', type: 'removed' })
-              unifiedLineNum++
-              unifiedLines.push({ lineNumber: unifiedLineNum, text: '', type: 'removed' })
+              const id = blockId
               blocks.push({
                 id: blockId++,
                 type: 'remove',
                 baseLines: [removedLine],
                 compareLines: [],
-                selected: selectedBlockIds.value.has(blockId - 1),
+                selected: selectedBlockIds.value.has(id),
               })
+              leftLines.push({ lineNumber: 0, text: removedLine, type: 'added', blockId: id })
+              rightLines.push({ lineNumber: 0, text: '', type: 'removed', blockId: id })
+              unifiedLineNum++
+              unifiedLines.push({ lineNumber: unifiedLineNum, text: '', type: 'removed' })
             }
           }
 
@@ -157,34 +164,36 @@ export function useJsonDiff(
             if (!usedAdded.has(aIdx)) {
               const addedLine = nextLinesForChange[aIdx]
               if (!addedLine) continue
-              leftLines.push({ lineNumber: 0, text: '', type: 'removed' })
-              rightLines.push({ lineNumber: 0, text: addedLine, type: 'added' })
-              unifiedLineNum++
-              unifiedLines.push({ lineNumber: unifiedLineNum, text: addedLine, type: 'added' })
+              const id = blockId
               blocks.push({
                 id: blockId++,
                 type: 'add',
                 baseLines: [],
                 compareLines: [addedLine],
-                selected: selectedBlockIds.value.has(blockId - 1),
+                selected: selectedBlockIds.value.has(id),
               })
+              leftLines.push({ lineNumber: 0, text: '', type: 'removed', blockId: id })
+              rightLines.push({ lineNumber: 0, text: addedLine, type: 'added', blockId: id })
+              unifiedLineNum++
+              unifiedLines.push({ lineNumber: unifiedLineNum, text: addedLine, type: 'added' })
             }
           }
           i++
         } else {
-          for (const line of currLines) {
-            leftLines.push({ lineNumber: 0, text: line, type: 'added' })
-            rightLines.push({ lineNumber: 0, text: '', type: 'removed' })
-            unifiedLineNum++
-            unifiedLines.push({ lineNumber: unifiedLineNum, text: '', type: 'removed' })
-          }
+          const id = blockId
           blocks.push({
             id: blockId++,
             type: 'remove',
             baseLines: currLines,
             compareLines: [],
-            selected: selectedBlockIds.value.has(blockId - 1),
+            selected: selectedBlockIds.value.has(id),
           })
+          for (const line of currLines) {
+            leftLines.push({ lineNumber: 0, text: line, type: 'added', blockId: id })
+            rightLines.push({ lineNumber: 0, text: '', type: 'removed', blockId: id })
+            unifiedLineNum++
+            unifiedLines.push({ lineNumber: unifiedLineNum, text: '', type: 'removed' })
+          }
         }
       } else {
         for (const line of currLines) {

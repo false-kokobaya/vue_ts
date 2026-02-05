@@ -1,12 +1,32 @@
 <script setup lang="ts">
 import type { DiffLineLeft, DiffLineRight, UnifiedDiffLine } from '@/composables/useJsonDiff'
 
-defineProps<{
+const props = defineProps<{
   /** 統一表示のときは unifiedLines、従来は leftLines / rightLines */
   lines: DiffLineLeft[] | DiffLineRight[] | UnifiedDiffLine[]
   /** 統一表示のときは 'unified'、従来は 'left' | 'right' */
   side?: 'left' | 'right' | 'unified'
+  /** 取り込み選択されているブロックID（クリックでトグル用） */
+  selectedBlockIds?: Set<number>
 }>()
+
+const emit = defineEmits<{
+  toggle: [blockId: number]
+}>()
+
+function isSelectableLine(line: DiffLineLeft | DiffLineRight | UnifiedDiffLine): line is (DiffLineLeft | DiffLineRight) & { blockId: number } {
+  return 'blockId' in line && typeof line.blockId === 'number'
+}
+
+function isSelected(line: DiffLineLeft | DiffLineRight | UnifiedDiffLine): boolean {
+  if (!isSelectableLine(line) || !props.selectedBlockIds) return false
+  return props.selectedBlockIds.has(line.blockId)
+}
+
+function onLineClick(line: DiffLineLeft | DiffLineRight | UnifiedDiffLine) {
+  if (!isSelectableLine(line)) return
+  emit('toggle', line.blockId)
+}
 </script>
 
 <template>
@@ -15,8 +35,20 @@ defineProps<{
       v-for="(line, index) in lines"
       :key="index"
       class="diff-line"
-      :class="[`diff-line--${line.type}`, line.type === 'removed' && !line.text ? 'diff-line--removed-bar' : '']"
+      :class="[
+        `diff-line--${line.type}`,
+        line.type === 'removed' && !line.text ? 'diff-line--removed-bar' : '',
+        isSelectableLine(line) ? 'diff-line--selectable' : '',
+        isSelectableLine(line) && isSelected(line) ? 'diff-line--selected' : ''
+      ]"
       :data-line-type="line.type"
+      role="button"
+      :tabindex="isSelectableLine(line) ? 0 : undefined"
+      :aria-pressed="isSelectableLine(line) ? isSelected(line) : undefined"
+      :aria-label="isSelectableLine(line) ? (isSelected(line) ? '取り込み済み。クリックで解除' : 'クリックで取り込み') : undefined"
+      @click="onLineClick(line)"
+      @keydown.enter="onLineClick(line)"
+      @keydown.space.prevent="onLineClick(line)"
     >
       <span class="diff-line-number" aria-hidden="true">{{ line.type === 'removed' || line.lineNumber === 0 ? '' : line.lineNumber }}</span>
       <span class="diff-line-content">{{ line.text || (line.type === 'removed' ? '' : ' ') }}</span>
@@ -104,5 +136,18 @@ defineProps<{
 
 .diff-line--unchanged .diff-line-number {
   background-color: transparent;
+}
+
+.diff-line--selectable {
+  cursor: pointer;
+}
+
+.diff-line--selectable:hover {
+  filter: brightness(0.97);
+}
+
+.diff-line--selected {
+  outline: 2px solid var(--vt-c-indigo, #2c3e50);
+  outline-offset: -2px;
 }
 </style>
