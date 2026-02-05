@@ -1,6 +1,10 @@
 # vue_ts
 
-This template should help get you started developing with Vue 3 in Vite.
+Vue 3 + Vite + TypeScript のプロジェクトです。JSON ファイルの差分比較・結合を行う Web アプリを含みます。
+
+- **JSON 差分比較**: 2 つの JSON を左右に並べて色付きで差分表示（追加・削除・変更のインラインハイライト）
+- **差分選択と結合**: 色付きの行をクリックで取り込み選択し、ベースを基に結合結果を常時表示
+- **結合結果のダウンロード**: JSON 構文が有効なときのみ「結合結果をダウンロード」で保存可能
 
 ## Recommended IDE Setup
 
@@ -39,4 +43,12 @@ npm run dev
 
 ```sh
 npm run build
+```
+
+### Run Tests
+
+```sh
+npm run test        # ウォッチでテスト実行
+npm run test:run    # 1 回だけ実行
+npm run test:coverage  # カバレッジ付きで実行
 ```
