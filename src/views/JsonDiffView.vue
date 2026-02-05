@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, nextTick } from 'vue'
+import { ref, computed, nextTick } from 'vue'
 import { useJsonDiff } from '@/composables/useJsonDiff'
 import { useJsonMerge } from '@/composables/useJsonMerge'
 import DiffLineList from '@/components/DiffLineList.vue'
@@ -107,6 +107,19 @@ function triggerCompareFileSelect() {
 const { leftLines, rightLines, blocks } = useJsonDiff(baseText, compareText, selectedBlockIds)
 const { mergedText } = useJsonMerge(baseText, compareText, selectedBlockIds)
 
+/** 現在の選択で結合した結果のJSON検証。エラー時はメッセージを返す */
+const mergeValidation = computed(() => {
+  const text = mergedText.value
+  if (text.trim() === '') return { valid: true as const, message: '' }
+  try {
+    JSON.parse(text)
+    return { valid: true as const, message: '' }
+  } catch (e) {
+    const message = e instanceof Error ? e.message : String(e)
+    return { valid: false as const, message }
+  }
+})
+
 function toggleBlock(blockId: number) {
   const next = new Set(selectedBlockIds.value)
   if (next.has(blockId)) next.delete(blockId)
@@ -211,13 +224,22 @@ function downloadMerged() {
         </div>
       </div>
 
+      <!-- 差分表示の直下: 結合時のJSONエラー表示 -->
+      <div
+        v-if="leftLines.length > 0 && !mergeValidation.valid"
+        class="merge-error"
+        role="alert"
+      >
+        JSON構文エラー（結合すると不正になります）: {{ mergeValidation.message }}
+      </div>
+
       <section v-if="baseText !== '' || compareText !== ''" class="result-section">
         <div class="result-header">
           <h2 class="result-title">結合結果</h2>
           <button
             type="button"
             class="btn btn-download"
-            :disabled="mergedText === ''"
+            :disabled="mergedText === '' || !mergeValidation.valid"
             aria-label="結合結果をダウンロード"
             @click="downloadMerged"
           >
@@ -228,7 +250,7 @@ function downloadMerged() {
           :value="mergedText"
           class="textarea result-textarea"
           readonly
-          placeholder="差分を選択すると結合結果がここに表示されます"
+          placeholder="差分を選択すると結合結果がここに表示されます（ベースを基に表示）"
           spellcheck="false"
           aria-label="結合結果"
         />
@@ -346,6 +368,16 @@ function downloadMerged() {
 .legend-added { color: #166534; }
 .legend-changed { color: #854d0e; }
 .legend-hint { opacity: 0.85; font-weight: normal; }
+
+.merge-error {
+  margin-top: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+  color: #b91c1c;
+  background-color: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 6px;
+}
 
 .result-section {
   margin-top: 1.5rem;

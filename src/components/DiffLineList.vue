@@ -51,7 +51,16 @@ function onLineClick(line: DiffLineLeft | DiffLineRight | UnifiedDiffLine) {
       @keydown.space.prevent="onLineClick(line)"
     >
       <span class="diff-line-number" aria-hidden="true">{{ line.type === 'removed' || line.lineNumber === 0 ? '' : line.lineNumber }}</span>
-      <span class="diff-line-content">{{ line.text || (line.type === 'removed' ? '' : ' ') }}</span>
+      <span class="diff-line-content">
+        <template v-if="line.type === 'changed' && 'inlineDiff' in line && line.inlineDiff?.length">
+          <span
+            v-for="(seg, segIdx) in (line as { inlineDiff: { text: string; highlight: boolean }[] }).inlineDiff"
+            :key="segIdx"
+            :class="{ 'diff-line-inline-highlight': seg.highlight }"
+          >{{ seg.text }}</span>
+        </template>
+        <template v-else>{{ line.text || (line.type === 'removed' ? '' : ' ') }}</template>
+      </span>
     </div>
   </div>
 </template>
@@ -112,15 +121,19 @@ function onLineClick(line: DiffLineLeft | DiffLineRight | UnifiedDiffLine) {
   min-width: 1px;
 }
 
-/* 変更 = 黄 */
+/* 変更 = 行全体は薄い黄、変更箇所は濃い黄（インライン） */
 .diff-line--changed,
 .diff-line--changed .diff-line-number,
 .diff-line--changed .diff-line-content {
-  background-color: #fef08a !important;
+  background-color: #fef9c3 !important; /* 薄い黄 */
 }
 
 .diff-line--changed .diff-line-number {
-  background-color: #fde047 !important;
+  background-color: #fef08a !important;
+}
+
+.diff-line--changed .diff-line-inline-highlight {
+  background-color: #eab308 !important; /* 濃い黄（変更箇所のみ） */
 }
 
 /* 追加 = 緑 */

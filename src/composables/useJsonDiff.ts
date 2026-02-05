@@ -1,5 +1,5 @@
 import { computed, type Ref } from 'vue'
-import { diffLines } from 'diff'
+import { diffLines, diffChars } from 'diff'
 
 /** ベース側: ある＝緑(added)、ない＝赤(removed)、変更＝黄(changed) */
 export type LeftLineType = 'unchanged' | 'removed' | 'changed' | 'added'
@@ -9,12 +9,20 @@ export type RightLineType = 'unchanged' | 'removed' | 'added' | 'changed'
 /** 統一差分表示用: 1本のリストで 追加=緑, 変更=黄, 削除=赤バー */
 export type UnifiedLineType = 'unchanged' | 'added' | 'changed' | 'removed'
 
+/** 変更行のインライン表示用セグメント（変更箇所のみ濃い色で表示） */
+export interface InlineDiffSegment {
+  text: string
+  highlight: boolean
+}
+
 export interface DiffLineLeft {
   lineNumber: number
   text: string
   type: LeftLineType
   /** クリックで取り込み選択するブロックID。未設定は選択不可行 */
   blockId?: number
+  /** 変更行のとき、変更箇所ごとのセグメント（左＝削除側は removed 部分を highlight） */
+  inlineDiff?: InlineDiffSegment[]
 }
 
 export interface DiffLineRight {
@@ -23,6 +31,8 @@ export interface DiffLineRight {
   type: RightLineType
   /** クリックで取り込み選択するブロックID。未設定は選択不可行 */
   blockId?: number
+  /** 変更行のとき、変更箇所ごとのセグメント（右＝追加側は added 部分を highlight） */
+  inlineDiff?: InlineDiffSegment[]
 }
 
 export interface UnifiedDiffLine {
@@ -48,6 +58,27 @@ function splitLines(value: string): string[] {
     lines.pop()
   }
   return lines
+}
+
+/** 変更行ペア用に、左（removed）・右（added）のインラインセグメントを生成 */
+function buildInlineDiffSegments(
+  leftText: string,
+  rightText: string
+): { left: InlineDiffSegment[]; right: InlineDiffSegment[] } {
+  const parts = diffChars(leftText, rightText)
+  const left: InlineDiffSegment[] = []
+  const right: InlineDiffSegment[] = []
+  for (const part of parts) {
+    if (part.removed) {
+      left.push({ text: part.value, highlight: true })
+    } else if (part.added) {
+      right.push({ text: part.value, highlight: true })
+    } else {
+      left.push({ text: part.value, highlight: false })
+      right.push({ text: part.value, highlight: false })
+    }
+  }
+  return { left, right }
 }
 
 /**
@@ -128,10 +159,23 @@ export function useJsonDiff(
                   compareLines: [addedLine],
                   selected: selectedBlockIds.value.has(id),
                 })
+                const { left: leftSegments, right: rightSegments } = buildInlineDiffSegments(removedLine, addedLine)
                 leftLineNum++
                 rightLineNum++
-                leftLines.push({ lineNumber: leftLineNum, text: removedLine, type: 'changed', blockId: id })
-                rightLines.push({ lineNumber: rightLineNum, text: addedLine, type: 'changed', blockId: id })
+                leftLines.push({
+                  lineNumber: leftLineNum,
+                  text: removedLine,
+                  type: 'changed',
+                  blockId: id,
+                  inlineDiff: leftSegments,
+                })
+                rightLines.push({
+                  lineNumber: rightLineNum,
+                  text: addedLine,
+                  type: 'changed',
+                  blockId: id,
+                  inlineDiff: rightSegments,
+                })
                 unifiedLineNum++
                 unifiedLines.push({ lineNumber: unifiedLineNum, text: addedLine, type: 'changed' })
                 usedRemoved.add(rIdx)
