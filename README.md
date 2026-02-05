@@ -37,7 +37,7 @@
 
 ## ディレクトリ構成図
 
-```
+```text
 vue_ts/
 ├── index.html              # エントリー HTML
 ├── vite.config.ts           # Vite の設定
