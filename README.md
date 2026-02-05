@@ -158,7 +158,7 @@ flowchart TB
     type -->|unchanged| out_unchanged[そのまま出力]
     type -->|added| out_added[追加ブロック・blockId 付与]
     type -->|removed| next{直後が added?}
-    next -->|Yes| keyMatch['キー一致で行ペアリング<br/>("key": で変更と判定)']
+    next -->|Yes| keyMatch['キー一致で行ペアリング<br/>key で変更と判定']
     next -->|No| out_removed[削除ブロック・blockId 付与]
     keyMatch --> diffChars[diffChars で文字単位差分]
     diffChars --> out_changed[変更ブロック・blockId + インラインセグメント]
